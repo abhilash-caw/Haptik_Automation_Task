@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Run Bot Test</title>
+</head>
+<body>
+  <h2>Upload CSV & Run Bot Test</h2>
+
+  <!-- Upload Form -->
+  <form id="upload-form" enctype="multipart/form-data">
+    <input type="file" name="csvFile" accept=".csv" required />
+    <button type="submit">Upload CSV</button>
+  </form>
+
+  <!-- Run Bot Button -->
+  <button onclick="runTest()">Run Bot Test</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    document.getElementById('upload-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+  
+      const formData = new FormData(this);
+  
+      try {
+        const res = await fetch('http://localhost:3000/upload-csv', {
+          method: 'POST',
+          body: formData
+        });
+  
+        const text = await res.text();
+        document.getElementById('output').innerText = text;
+      } catch (err) {
+        document.getElementById('output').innerText = 'Error: ' + err.message;
+      }
+    });
+
+    async function runTest() {
+      try {
+        const res = await fetch('http://localhost:3000/run-bot-test', {
+          method: 'POST'
+        });
+
+        const text = await res.text();
+        document.getElementById('output').innerText = text;
+      } catch (err) {
+        document.getElementById('output').innerText = 'Error: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
