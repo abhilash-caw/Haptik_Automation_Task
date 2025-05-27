@@ -4,26 +4,22 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const questions = require('../questions.json');
+const { getTestUrl } = require('../config/test-config');
 
 test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
   test.setTimeout(0); // Unlimited timeout
 
-  await page.goto(
-    'https://toolassets.haptikapi.com/js-sdk/html/demoqp.html?business-id=8867&client-id=75d87f5185a3d04bf1129320bc4a93237877f2d1&api-key=npci:otoh9oes4gap1oe798jcxl91ffzq0ixd3jnleb3d&base-url=https://staging.hellohaptik.com/&xdk=true',
-    { waitUntil: 'domcontentloaded' }
-  );
+  // Get URL from config file - automatically uses 'staging' environment
+  // To use production environment, uncomment the line below:
+  // const testUrl = getTestUrl('production');
+  const testUrl = getTestUrl();
+  await page.goto(testUrl, { waitUntil: 'domcontentloaded' });
 
-  // await page.goto(
-  //   'https://toolassets.haptikapi.com/js-sdk/html/demoqp.html?business-id=8500&client-id=75d87f5185a3d04bf1129320bc4a93237877f2d1&api-key=npci:8jdx4x12rumk9omntb261af1d8ympxl9212hbkky&base-url=https://staging.hellohaptik.com/&xdk=true',
-  //   { waitUntil: 'domcontentloaded' }
-  // );
-
-  const frame = page.frameLocator('iframe').first();
+  const frame = page.locator('iframe').first().contentFrame();
   await frame.getByTestId('minimizeButton').click();
 
   const inputBox = frame.getByTestId('composerTextArea');
   await inputBox.waitFor();
-  await page.waitForTimeout(3000); // Wait for 3 more sec
 
   const typingIndicator = frame.locator('text=Typing');
   const botMessages = frame.locator('.hsl-bubble');
