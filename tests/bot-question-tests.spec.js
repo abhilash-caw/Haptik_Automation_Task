@@ -4,13 +4,6 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const questions = require('../questions.json');
-// import { test, expect } from '@playwright/test';
-// import fs from 'fs';
-// import path from 'path';
-// import os from 'os';
-// import { exec } from 'child_process';
-// import questions from '../questions.json' assert { type: 'json' };
-
 
 test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
   test.setTimeout(0); // Unlimited timeout
@@ -24,59 +17,69 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
   //   'https://toolassets.haptikapi.com/js-sdk/html/demoqp.html?business-id=8500&client-id=75d87f5185a3d04bf1129320bc4a93237877f2d1&api-key=npci:8jdx4x12rumk9omntb261af1d8ympxl9212hbkky&base-url=https://staging.hellohaptik.com/&xdk=true',
   //   { waitUntil: 'domcontentloaded' }
   // );
-  
 
   const frame = page.frameLocator('iframe').first();
-  await frame.locator("//div[contains(@data-testid,'minimizeButton')]//span//*[name()='svg']").click();
+  await frame.getByTestId('minimizeButton').click();
 
-  const inputBox = frame.locator("//textarea[@id='composerv2-text-area']");
+  const inputBox = frame.getByTestId('composerTextArea');
   await inputBox.waitFor();
   await page.waitForTimeout(3000); // Wait for 3 more sec
 
   const typingIndicator = frame.locator('text=Typing');
-  const botMessages = frame.locator("span.hsl-bubble-text.v2.message-section-message-bubble-text");
+  const botMessages = frame.locator('.hsl-bubble');
 
   const collectedQA = [];
+
+  // Helper function to wait for bot response after sending a question
+  async function waitForBotResponse() {
+    let done = false;
+    let waited = 0;
+    const maxTimeout = 30000; // 30 seconds max
+    const pollInterval = 500;
+
+    // Get initial bot message count before waiting
+    const oldCount = await botMessages.count();
+
+    while (!done && waited < maxTimeout) {
+      await page.waitForTimeout(pollInterval);
+      waited += pollInterval;
+
+      const newCount = await botMessages.count();
+      const isTyping = await typingIndicator.isVisible().catch(() => false);
+
+      if (newCount > oldCount && !isTyping) {
+        // Wait extra to ensure messages finish rendering
+        await page.waitForTimeout(2000);
+        const stableCount = await botMessages.count();
+        if (stableCount === newCount) {
+          done = true;
+        }
+      }
+    }
+
+    if (!done) throw new Error('Timeout waiting for bot response');
+
+    // Return old and new counts for message collection
+    return { oldCount, newCount: await botMessages.count() };
+  }
 
   try {
     for (const [index, question] of questions.entries()) {
       console.log(`🟡 Sending Q${index + 1}: ${question}`);
-      const oldCount = await botMessages.count();
 
       // Send the question
       await inputBox.fill(question);
       await inputBox.press('Enter');
 
-      // Wait for question to be visible in the chat window
-      await page.waitForTimeout(500); // Allow a short time for the question to render
+      // Wait a short time for question to render
+      await page.waitForTimeout(3000);
 
-      // Ensure bot replies before sending the next question
-      let done = false;
-      let waited = 0;
-      const maxTimeout = 30000; // 30 seconds max for each response
-      const pollInterval = 500;
-
-      while (!done && waited < maxTimeout) {
-        await page.waitForTimeout(pollInterval);
-        waited += pollInterval;
-
-        const newCount = await botMessages.count();
-        const isTyping = await typingIndicator.isVisible().catch(() => false);
-
-        if (newCount > oldCount && !isTyping) {
-          // Wait a bit more to ensure the message is fully rendered
-          await page.waitForTimeout(2000);
-          const stableCount = await botMessages.count();
-          if (stableCount === newCount) {
-            done = true;
-          }
-        }
-      }
+      // Wait until bot finishes replying before continuing
+      const { oldCount, newCount } = await waitForBotResponse();
 
       // Collect new bot messages
-      const finalCount = await botMessages.count();
       const newMessages = [];
-      for (let i = oldCount; i < finalCount; i++) {
+      for (let i = oldCount; i < newCount; i++) {
         const text = (await botMessages.nth(i).textContent())?.trim();
         if (text && text !== question) newMessages.push(text);
       }
@@ -102,7 +105,7 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
     fs.writeFileSync(csvPath, csvData);
     console.log('📄 Responses saved to bot_responses.csv');
 
-    // Open the CSV file automatically
+    // Open CSV automatically based on OS
     if (os.platform() === 'win32') {
       exec(`start excel "${csvPath.replace(/\//g, '\\')}"`);
     } else if (os.platform() === 'darwin') {
@@ -111,7 +114,5 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
       exec(`xdg-open "${csvPath}"`);
     }
 
-    // Pause for manual inspection
-    await page.pause();
   }
 });
