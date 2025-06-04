@@ -1,51 +1,210 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Run Bot Test</title>
+  <title>Bot Test Runner</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .upload-section, .run-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+
+    .upload-section {
+      background-color: #f8f9fa;
+    }
+
+    .run-section {
+      background-color: #fff;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      width: 100%;
+    }
+
+    #output {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+      min-height: 100px;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 1rem 0;
+    }
+
+    .loading::after {
+      content: "⏳";
+      animation: loading 1s infinite;
+    }
+
+    @keyframes loading {
+      0% { content: "⏳"; }
+      50% { content: "⌛"; }
+      100% { content: "⏳"; }
+    }
+
+    .status {
+      margin-top: 1rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
 </head>
 <body>
-  <h2>Upload CSV & Run Bot Test</h2>
+  <div class="container">
+    <h2>Bot Test Runner</h2>
 
-  <!-- Upload Form -->
-  <form id="upload-form" enctype="multipart/form-data">
-    <input type="file" name="csvFile" accept=".csv" required />
-    <button type="submit">Upload CSV</button>
-  </form>
+    <div class="upload-section">
+      <h3>Step 1: Upload Questions</h3>
+      <form id="upload-form" enctype="multipart/form-data">
+        <input type="file" name="csvFile" accept=".csv" required />
+        <button type="submit" id="upload-btn">Upload CSV</button>
+      </form>
+      <div id="upload-status" class="status"></div>
+    </div>
 
-  <!-- Run Bot Button -->
-  <button onclick="runTest()">Run Bot Test</button>
+    <div class="run-section">
+      <h3>Step 2: Run Bot Test</h3>
+      <button onclick="runTest()" id="run-btn">Run Bot Test</button>
+      <div id="run-status" class="status"></div>
+    </div>
 
-  <pre id="output"></pre>
+    <div class="loading" id="loading"></div>
+    <pre id="output"></pre>
+  </div>
 
   <script>
-    document.getElementById('upload-form').addEventListener('submit', async function (e) {
+    const uploadForm = document.getElementById('upload-form');
+    const uploadBtn = document.getElementById('upload-btn');
+    const runBtn = document.getElementById('run-btn');
+    const loading = document.getElementById('loading');
+    const output = document.getElementById('output');
+    const uploadStatus = document.getElementById('upload-status');
+    const runStatus = document.getElementById('run-status');
+
+    function showLoading() {
+      loading.style.display = 'block';
+      output.textContent = '';
+    }
+
+    function hideLoading() {
+      loading.style.display = 'none';
+    }
+
+    function showStatus(element, message, isError = false) {
+      element.textContent = message;
+      element.className = `status ${isError ? 'error' : 'success'}`;
+    }
+
+    uploadForm.addEventListener('submit', async function (e) {
       e.preventDefault();
-  
+      showLoading();
+      uploadBtn.disabled = true;
+      runBtn.disabled = true;
+
       const formData = new FormData(this);
-  
+
       try {
         const res = await fetch('http://localhost:3000/upload-csv', {
           method: 'POST',
           body: formData
         });
-  
+
         const text = await res.text();
-        document.getElementById('output').innerText = text;
+        output.textContent = text;
+        showStatus(uploadStatus, 'CSV uploaded successfully!');
+        runBtn.disabled = false;
       } catch (err) {
-        document.getElementById('output').innerText = 'Error: ' + err.message;
+        output.textContent = 'Error: ' + err.message;
+        showStatus(uploadStatus, 'Upload failed: ' + err.message, true);
+      } finally {
+        hideLoading();
+        uploadBtn.disabled = false;
       }
     });
 
     async function runTest() {
+      showLoading();
+      runBtn.disabled = true;
+      uploadBtn.disabled = true;
+
       try {
         const res = await fetch('http://localhost:3000/run-bot-test', {
           method: 'POST'
         });
 
         const text = await res.text();
-        document.getElementById('output').innerText = text;
+        output.textContent = text;
+        showStatus(runStatus, 'Test completed successfully!');
       } catch (err) {
-        document.getElementById('output').innerText = 'Error: ' + err.message;
+        output.textContent = 'Error: ' + err.message;
+        showStatus(runStatus, 'Test failed: ' + err.message, true);
+      } finally {
+        hideLoading();
+        runBtn.disabled = false;
+        uploadBtn.disabled = false;
       }
     }
   </script>
