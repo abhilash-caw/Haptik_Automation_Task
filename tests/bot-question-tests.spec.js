@@ -12,6 +12,7 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
   // Get URL from config file - automatically uses 'staging' environment
   // To use production environment, uncomment the line below:
   // const testUrl = getTestUrl('production');
+
   const testUrl = getTestUrl();
   await page.goto(testUrl, { waitUntil: 'domcontentloaded' });
 
@@ -44,8 +45,6 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
       const isTyping = await typingIndicator.isVisible().catch(() => false);
 
       if (newCount > oldCount && !isTyping) {
-        // Wait extra to ensure messages finish rendering
-        await page.waitForTimeout(2000);
         const stableCount = await botMessages.count();
         if (stableCount === newCount) {
           done = true;
@@ -66,9 +65,6 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
       // Send the question
       await inputBox.fill(question);
       await inputBox.press('Enter');
-
-      // Wait a short time for question to render
-      await page.waitForTimeout(3000);
 
       // Wait until bot finishes replying before continuing
       const { oldCount, newCount } = await waitForBotResponse();
@@ -111,4 +107,4 @@ test('Ask questions, get bot replies, and export to CSV', async ({ page }) => {
     }
 
   }
-});
+}); 
